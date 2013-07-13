@@ -1,0 +1,22 @@
+{
+    "name": "elder",
+    "description": "Elder scrolls...",
+    "author": "Kory Nunn <knunn187@gmail.com>",
+    "tags": [
+        "DOM"
+    ],
+    "version": "0.1.0",
+    "main": "elder.js",
+    "dependencies": {
+        "interact":">= 1.0.0"
+    },
+    "devDependencies": {},
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/KoryNunn/elder.git"
+    },
+    "bugs": {
+        "url": "http://github.com/KoryNunn/elder/issues"
+    },
+    "contributors": []
+}

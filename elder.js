@@ -4,8 +4,8 @@
     var vendors = ['ms', 'moz', 'webkit', 'o'];
     for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
         window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
-        window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] 
-                                   || window[vendors[x]+'CancelRequestAnimationFrame'];
+        window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] ||
+                                   window[vendors[x]+'CancelRequestAnimationFrame'];
     }
  
     if (!window.requestAnimationFrame)
@@ -24,7 +24,8 @@
         };
 }());
 ;(function(){
-    var requestAnimationFrame = window.requestAnimationFrame;
+    var requestAnimationFrame = window.requestAnimationFrame,
+        frameTime = 100;
     
     function Elder(element, settings){
         if(!element){
@@ -47,121 +48,273 @@
             y:0,
             x:0
         };
-        this._events = [];
-    };
-
-    Elder.prototype.momentum = 1;
-
-    Elder.prototype.animate = function(time, ease){
-        this.element.style['-webkit-transition'] = time ? '-webkit-transform ' + time / 1000 + 's ' + (ease === false ? 'linear' : 'ease-out') : 'none';
-        return this;
-    };
-
-    Elder.prototype.scrollTo = function(position, wasMomentumScroll){
-        var elder = this;
-        this.beforeScrollPosition = {
-            x: this.position.x,
-            y: this.position.y
+        this.outOfBounds = {
+            y:0,
+            x:0
         };
-        this.position = position;
-        requestAnimationFrame(function(timestamp){
-            elder.element.style['-webkit-transform'] = 'translate3d(' + position.x + 'px,' + position.y + 'px,0)';
-        });
-        if(!wasMomentumScroll){
-            this.trigger({
-                type: 'scroll',
-                position: position,
-                beforeScrollPosition: this.beforeScrollPosition
-            });
-        }
+        this._events = [];
+    }
+
+    Elder.prototype.friction = 3; // pix per sec friction
+
+    Elder.prototype.animate = function(time){
+        this.element.style['-webkit-transition'] = '-webkit-transform ' + time / 1000 + 's ' + 'linear';
         return this;
     };
 
-    Elder.prototype.scrollBy = function(position){
-        var ellapsedTime = new Date() - this.lastUpdateTime || 1;
+    var lastFrameCall;
 
-        this.position.x += position.x;
-        this.position.y += position.y;
-        this.velocity.x = (this.velocity.x + (position.x / ellapsedTime * 2))/3;
-        this.velocity.y = (this.velocity.y + (position.y / ellapsedTime * 2))/3;
-        this.scrollTo(this.position);
-        this.lastUpdateTime = new Date();
+    function moveTo(elder, position, callback, synchronous){
+        elder.position.x = position.x;
+        elder.position.y = position.y;
+
+        checkBounds(elder);
+
+        var updatePosition = function(timeStamp){
+            elder.element.style['-webkit-transform'] = 'translate3d(' + elder.position.x + 'px,' + elder.position.y + 'px,0)';
+            if(callback){
+                callback();
+            }
+        };
+
+        cancelAnimationFrame(lastFrameCall);
+
+        synchronous ? updatePosition() : (lastFrameCall = requestAnimationFrame(updatePosition));
+    }
+
+
+
+    Elder.prototype.scrollTo = function(position, callback){
+        var elder = this;
+        this.velocity.x = 0;
+        this.velocity.y = 0;
+
+        moveTo(this, position, function(){
+            if(callback){
+                callback();
+            }
+
+            elder.trigger({
+                type: 'scroll'
+            });
+        });
+        
+        return this;
+    };
+
+    function checkBounds(elder){
+        elder.outOfBounds.y = 0;
+        elder.outOfBounds.x = 0;
+
+        if(elder.position.y > 0){
+            elder.outOfBounds.y = elder.position.y;
+        }else if(elder.position.y < 0 - (elder.element.scrollHeight - elder.element.parentNode.clientHeight)){
+            elder.outOfBounds.y = (elder.element.scrollHeight - elder.element.parentNode.clientHeight) + elder.position.y;
+        }
+
+        if(elder.position.x > 0){
+            elder.outOfBounds.x = elder.position.x;
+        }else if(elder.position.x < 0 - (elder.element.scrollWidth - elder.element.parentNode.clientWidth)){
+            elder.outOfBounds.x = (elder.element.scrollWidth - elder.element.parentNode.clientWidth) + elder.position.x;
+        }
+    }
+
+    Elder.prototype.warpTo = function(position, callback, synchronous){
+        if(this.tweenToPosition){
+            this.tweenToPosition.x -= this.position.x - position.x;
+            this.tweenToPosition.y -= this.position.y - position.y;
+        }
+        moveTo(this, position, callback, synchronous);
+
+        return this;
+    };
+
+    Elder.prototype.warpBy = function(position, callback, synchronous){
+        this.warpTo({
+            x: this.position.x + position.x,
+            y: this.position.y + position.y
+        }, callback, synchronous);
+
+        return this;
+    };
+
+    function clearVelocity(elder){
+        elder.velocity.x = elder.velocity.y = 0;
+    }
+
+    Elder.prototype.scrollBy = function(position, callback){
+        var elder = this,
+            now = new Date(),
+            timeDifference = (now - this.lastUpdate) || 1;
+
+        this.scrollTo({
+            x: this.position.x + position.x,
+            y: this.position.y + position.y
+        }, callback);
+
+
+        this.velocity.x = position.x * (16 / timeDifference);
+        this.velocity.y = position.y * (16 / timeDifference);
+        
+        this.lastUpdate = now;
+
         return this;
     };
 
     Elder.prototype.beginUpdate = function(){
-        this.animate(false);
+        this.held = true;
         return this;
+    };
+
+    function animateTo(elder, position, callback){
+        clearVelocity(elder);
+        elder.tweenToPosition = position;
+        var tweenTo = function(){
+                if(!elder.tweenToPosition){
+                    return;
+                }
+                if(Math.abs(elder.position.x - elder.tweenToPosition.x) < 0.1){
+                    elder.position.x = elder.tweenToPosition.x;
+                }
+                if(Math.abs(elder.position.y - elder.tweenToPosition.y) < 0.1){
+                    elder.position.y = elder.tweenToPosition.y;
+                }
+
+                if(elder.position.x === elder.tweenToPosition.x && elder.position.y === elder.tweenToPosition.y){
+                    elder.tweenToPosition = null;
+                    if(callback){
+                        callback();
+                    }
+
+                    elder.trigger({
+                        type: 'settle'
+                    });
+                    return;
+                }
+
+                elder.position.x -= (elder.position.x - elder.tweenToPosition.x) * 0.1;
+                elder.position.y -= (elder.position.y - elder.tweenToPosition.y) * 0.1;
+                
+                moveTo(
+                    elder, 
+                    {
+                        x: elder.position.x,
+                        y: elder.position.y
+                    },
+                    function(){
+                        if(elder.held){
+                            return;
+                        }
+                        elder.trigger({
+                            type: 'scroll'
+                        });
+                        tweenTo();
+                    }
+                );
+            };
+
+        tweenTo();
+    }
+
+    Elder.prototype.animateTo = function(position){
+        animateTo(this, position);
+    };
+
+    Elder.prototype.deceleration = function(velocity){
+        velocity.x *= 0.95;
+        velocity.y *= 0.95;
     };
 
     Elder.prototype.endUpdate = function(){
         var elder = this;
 
-        if(Math.abs(this.velocity).x > 0.5 || Math.abs(this.velocity.y) > 0.5){
-            var animateTime = Math.min(Math.max(Math.max(Math.abs(this.velocity.x), Math.abs(this.velocity.y)) * 50 * this.momentum, 100),800);
-            this.animate(animateTime);
-
-            this.position.x += this.velocity.x * 50 * this.momentum;
-            this.position.y += this.velocity.y * 50 * this.momentum;
-
-            this.velocity = {x:0,y:0};
-
-            this.scrollTo(this.position, true);
+        if(!this.held){
+            return;
         }
 
-        var overscrolled,
-            settlePosition = {
-                x: this.position.x,
-                t: this.position.y
+        if(new Date() - this.lastUpdate > 50){            
+            clearVelocity(elder);
+        }
+
+        this.held = false;
+
+        if(elder.outOfBounds.x || elder.outOfBounds.y){
+            elder.trigger({
+                type: 'overscroll',
+                which: [elder.outOfBounds.x && (elder.outOfBounds.x > 0 ? 'right' : 'left'), elder.outOfBounds.y && (elder.outOfBounds.y > 0 ? 'top' : 'bottom')].join(' '),
+                distance: {
+                    x: Math.abs(elder.outOfBounds.x),
+                    y: Math.abs(elder.outOfBounds.y)
+                }
+            });
+
+            var settleLocation = {};
+
+            settleLocation.y = elder.element.parentNode.clientHeight > elder.element.clientHeight ?
+                0:
+                elder.position.y - elder.outOfBounds.y;
+
+
+            settleLocation.x = elder.element.parentNode.clientWidth > elder.element.clientWidth ?
+                0:
+                elder.position.x - elder.outOfBounds.x;
+
+
+            animateTo(elder, settleLocation);
+
+            elder.outOfBounds.x = 0;
+            elder.outOfBounds.y = 0;
+
+            return;
+
+        }
+
+        var  momentumScroll = function(){
+                var totalVelocity = Math.sqrt(Math.pow(elder.velocity.x,2) + Math.pow(elder.velocity.y,2));
+
+                if(elder.outOfBounds.x){
+                    elder.position.x -= elder.outOfBounds.x;
+                    elder.velocity.x = 0;
+                }
+
+                if(elder.outOfBounds.y){
+                    elder.position.y -= elder.outOfBounds.y;
+                    elder.velocity.y = 0;                    
+                }
+
+                moveTo(
+                    elder, 
+                    {
+                        x: elder.position.x += elder.velocity.x,
+                        y: elder.position.y += elder.velocity.y
+                    },
+                    function(){
+                        elder.trigger({
+                            type: 'scroll'
+                        });
+                        if(elder.held || totalVelocity <= 0.1){
+                            if(!elder.held){
+                                elder.trigger({
+                                    type: 'settle'
+                                });
+                            }
+                            return;                            
+                        }
+
+                        elder.deceleration(elder.velocity);
+
+                        momentumScroll();
+                    }
+                );
             };
 
-        if(this.position.y > 0){
-            overscrolled = true;
-            this.trigger({
-                type: 'overscroll',
-                which:'top',
-                distance: this.position.y
-            });
-            settlePosition.y = 0;
-        }
-        if(this.position.y < 0 - (this.element.scrollHeight - this.element.parentNode.clientHeight)){
-            overscrolled = true;
-            this.trigger({
-                type: 'overscroll',
-                which:'bottom',
-                distance: Math.abs((this.element.scrollHeight - this.element.parentNode.clientHeight) + this.position.y)
-            });
-            settlePosition.y = -(this.element.scrollHeight - this.element.parentNode.clientHeight);
-        }
-
-        if(this.position.x > 0){
-            overscrolled = true;
-            this.trigger({
-                type: 'overscroll',
-                which:'left',
-                distance: this.position.x
-            });
-            settlePosition.x = 0;
-        }
-        if(this.position.x < 0 - (this.element.scrollWidth - this.element.parentNode.clientWidth)){
-            overscrolled = true;
-            this.trigger({
-                type: 'overscroll',
-                which:'right',
-                distance: Math.abs((this.element.scrollWidth - this.element.parentNode.clientWidth) + this.position.x)
-            });
-            settlePosition.x = -(this.element.scrollWidth - this.element.parentNode.clientWidth);
-        }
-
-        if(overscrolled){
-            this.scrollTo(settlePosition);
-        }
-
+        momentumScroll(100);
 
         return this;
     };
 
     Elder.prototype.trigger = function(event){
+        event.target = this;
         if(this._events[event.type]){
             for(var i = 0; i < this._events[event.type].length; i++){
                 this._events[event.type][i](event);
@@ -178,6 +331,6 @@
         return this;
     };
 
-    window.Elder = Elder;
+    module.exports = Elder;
 
 })();
