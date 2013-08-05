@@ -8,7 +8,7 @@
     "version": "0.1.0",
     "main": "elder.js",
     "dependencies": {
-        "interact":">= 1.0.0"
+        "interact-js":"0.1.x"
     },
     "devDependencies": {},
     "repository": {
