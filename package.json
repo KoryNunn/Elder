@@ -5,7 +5,7 @@
   "tags": [
     "DOM"
   ],
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "elder.js",
   "dependencies": {
     "interact-js": "0.1.x"
