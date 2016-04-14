@@ -1,22 +1,28 @@
 {
-    "name": "elder",
-    "description": "Elder scrolls...",
-    "author": "Kory Nunn <knunn187@gmail.com>",
-    "tags": [
-        "DOM"
-    ],
-    "version": "0.1.0",
-    "main": "elder.js",
-    "dependencies": {
-        "interact-js":"0.1.x"
-    },
-    "devDependencies": {},
-    "repository": {
-        "type": "git",
-        "url": "git://github.com/KoryNunn/elder.git"
-    },
-    "bugs": {
-        "url": "http://github.com/KoryNunn/elder/issues"
-    },
-    "contributors": []
+  "name": "elder",
+  "description": "Elder scrolls...",
+  "author": "Kory Nunn <knunn187@gmail.com>",
+  "tags": [
+    "DOM"
+  ],
+  "version": "0.1.0",
+  "main": "elder.js",
+  "dependencies": {
+    "interact-js": "0.1.x"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/KoryNunn/elder.git"
+  },
+  "bugs": {
+    "url": "http://github.com/KoryNunn/elder/issues"
+  },
+  "contributors": [],
+  "homepage": "https://github.com/KoryNunn/elder#readme",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "license": "ISC"
 }
